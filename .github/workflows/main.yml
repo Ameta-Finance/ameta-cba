@@ -1,0 +1,52 @@
+name: Main Fineract Build
+permissions:
+  id-token: write
+  contents: read
+
+on:
+  push:
+    branches: 
+      - main
+      
+env:
+  ecr_repository: "ameta-cba"
+  aws_region: eu-west-2
+  github_deploy_role: "arn:aws:iam::380935475731:role/ameta-cba-gh-actions"
+
+jobs:
+  build: 
+    name: Deploy Build Main Fineract App
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Get short SHA
+      id: slug
+      run: echo "::set-output name=sha8::$(echo ${GITHUB_SHA} | cut -c1-8)"
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        role-to-assume: ${{ env.github_deploy_role }}
+        aws-region: ${{ env.aws_region }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Extract branch name
+      shell: bash
+      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      id: extract_branch
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ env.ecr_repository }}
+        IMAGE_TAG: "${{ steps.extract_branch.outputs.branch }}-${{ steps.slug.outputs.sha8 }}"
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"

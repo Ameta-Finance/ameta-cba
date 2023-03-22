@@ -35,7 +35,8 @@ services:
     ports:
       - "3306:3306"
   fineract-server:
-    image: fineract:latest
+    build:
+      context: .
     volumes:
       - ./fineract-provider/build/data:/data
     healthcheck:
@@ -44,9 +45,6 @@ services:
       retries: 10
     ports:
       - 8443:8443
-    depends_on:
-      fineractmysql:
-        condition: service_healthy
     environment:
       # TODO: env vars prefixed with "fineract_tenants_*" will be removed with one of the next releases
       #- fineract_tenants_driver=org.mariadb.jdbc.Driver
